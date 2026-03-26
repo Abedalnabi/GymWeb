@@ -8,14 +8,43 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #ffffff; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #ffffff;
+        }
         .accent-bg { background-color: #FFD700; }
         .accent-text { color: #FFD700; }
-        .card { background-color: #141414; border-left: 4px solid #FFD700; transition: all 0.3s ease; }
-        .input-field { background-color: #1f1f1f; border: 1px solid #333; color: white; padding: 10px; border-radius: 8px; width: 75px; text-align: center; }
-        .history-container { background-color: #0d0d0d; border-radius: 10px; margin-top: 15px; border: 1px solid #222; }
+        .card {
+            background-color: #141414;
+            border-left: 4px solid #FFD700;
+            transition: all 0.3s ease;
+        }
+        .input-field {
+            background-color: #1f1f1f;
+            border: 1px solid #333;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            width: 75px;
+            text-align: center;
+        }
+        .history-container {
+            background-color: #0d0d0d;
+            border-radius: 10px;
+            margin-top: 15px;
+            border: 1px solid #222;
+        }
         .history-row:nth-child(even) { background-color: #1a1a1a; }
-        .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a0a0a; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
@@ -68,6 +97,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Firebase Configuration (Using provided config)
         const firebaseConfig = {
             apiKey: "AIzaSyBOOPKV2C1nEA--_no2tK0KySwmZg8KNvQ",
             authDomain: "gymweb-6853c.firebaseapp.com",
@@ -82,39 +112,116 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
-        const appId = "gym-warrior-custom"; // مهم: مطابق للـ Rules الجديدة
+        const appId = "gym-warrior-custom"; 
 
         let currentUser = null;
         let activeDayKey = null;
         let currentUnsubscribes = [];
 
         const workoutData = {
-            push: { title: "Push Workout", exercises: [ { name: "DB Incline Press", sets: 4, reps: "12,10,10,10", rest: "2-3 mins" } /*…] */ },
-            pull: { title: "Pull Workout", exercises: [ { name: "Wide Grip Lat Pull Down", sets: 4, reps: "15,12,10,10", rest: "2-3 mins" } /*…] */ },
-            legs: { title: "Legs Workout", exercises: [ { name: "Hack Squats", sets: 3, reps: "12,10,10", rest: "2-3 mins" } /*…] */ },
-            chest_back: { title: "Chest & Back", exercises: [ { name: "Barbell Flat Press", sets: 4, reps: "20,12,10,8", rest: "2-3 mins" } /*…] */ },
-            arms_shoulders: { title: "Arms & Shoulders", exercises: [ { name: "Machine Shoulder Press", sets: 4, reps: "12,10,10,8 (Dropset)", rest: "2-3 mins" } /*…] */ }
+            "push": {
+                title: "Push Workout",
+                exercises: [
+                    { name: "DB Incline Press", sets: 4, reps: "12,10,10,10", rest: "2-3 mins" },
+                    { name: "Machine Flat Press", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Low Cable Flies", sets: 4, reps: "15,15,15,15", rest: "90-120 sec" },
+                    { name: "Butter Flies (Tempo)", sets: 3, reps: "10,10,10", rest: "90-120 sec" },
+                    { name: "Single Arm Front Raises", sets: 3, reps: "12,12,12", rest: "90-120 sec" },
+                    { name: "Machine Lateral Raise", sets: 3, reps: "15,15,15", rest: "90-120 sec" },
+                    { name: "Rope Triceps Push Down", sets: 5, reps: "15,12,10,10,8", rest: "90-120 sec" }
+                ]
+            },
+            "pull": {
+                title: "Pull Workout",
+                exercises: [
+                    { name: "Wide Grip Lat Pull Down", sets: 4, reps: "15,12,10,10", rest: "2-3 mins" },
+                    { name: "T-Bar Wide Grip", sets: 3, reps: "12,10,10", rest: "2-3 mins" },
+                    { name: "One Hand Machine", sets: 4, reps: "12,10,10,8", rest: "90-120 sec" },
+                    { name: "Cable Seated Low Row", sets: 4, reps: "12,12,12,12", rest: "90-120 sec" },
+                    { name: "Biceps DB Curls", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Wide Barbell Curls", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Hyper Extensions Back", sets: 3, reps: "15,15,15", rest: "2-3 mins" }
+                ]
+            },
+            "legs": {
+                title: "Legs Workout",
+                exercises: [
+                    { name: "Hack Squats", sets: 3, reps: "12,10,10", rest: "2-3 mins" },
+                    { name: "Leg Press", sets: 3, reps: "12,12,12", rest: "2-3 mins" },
+                    { name: "Leg Extension", sets: 3, reps: "15,12,10", rest: "2-3 mins" },
+                    { name: "Glutes Machine", sets: 3, reps: "15,15,15", rest: "90-120 sec" },
+                    { name: "Hamstring Legs", sets: 3, reps: "15,15,15", rest: "2-3 mins" },
+                    { name: "DB Stiffleg Deadlifts", sets: 3, reps: "12,12,12", rest: "90-120 sec" },
+                    { name: "Calves", sets: 3, reps: "20,20,20", rest: "90-120 sec" }
+                ]
+            },
+            "chest_back": {
+                title: "Chest & Back",
+                exercises: [
+                    { name: "Barbell Flat Press", sets: 4, reps: "20,12,10,8", rest: "2-3 mins" },
+                    { name: "Wide Grip Lat Pull Down", sets: 3, reps: "12,10,18 (Dropset)", rest: "2-3 mins" },
+                    { name: "Incline DB Press", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "One Hand Illiac", sets: 3, reps: "15,15,15", rest: "90-120 sec" },
+                    { name: "Butterflies * Dips", sets: 4, reps: "15,15,15,15", rest: "2-3 mins" },
+                    { name: "Low Cable Rows", sets: 3, reps: "15,15,15", rest: "90-120 sec" }
+                ]
+            },
+            "arms_shoulders": {
+                title: "Arms & Shoulders",
+                exercises: [
+                    { name: "Machine Shoulder Press", sets: 4, reps: "12,10,10,8 (Dropset)", rest: "2-3 mins" },
+                    { name: "DB Lateral Raises", sets: 3, reps: "15,12,12", rest: "90-120 sec" },
+                    { name: "Rear Delts on Rope", sets: 4, reps: "15,12,10,10", rest: "90-120 sec" },
+                    { name: "Seated Biceps DB Curls", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Hammer Curls DB", sets: 3, reps: "20,15,15", rest: "90-120 sec" },
+                    { name: "Long Rope Triceps Push Down", sets: 3, reps: "15,12,12", rest: "90-120 sec" },
+                    { name: "Over Head Extension Triceps", sets: 3, reps: "12,12,12", rest: "90-120 sec" }
+                ]
+            }
         };
 
         const dayTabs = document.getElementById('day-tabs');
         const workoutContainer = document.getElementById('workout-container');
         document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 
-        window.loginWithGoogle = async () => { try { await signInWithPopup(auth, provider); } catch(e){console.error(e);} };
-        window.logout = async () => { try { await signOut(auth); window.location.reload(); } catch(e){console.error(e);} };
+        // Authentication Handlers
+        window.loginWithGoogle = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("Login failed", error);
+            }
+        };
+
+        window.logout = async () => {
+            try {
+                await signOut(auth);
+                window.location.reload();
+            } catch (error) {
+                console.error("Logout failed", error);
+            }
+        };
 
         document.getElementById('login-btn').onclick = window.loginWithGoogle;
         document.getElementById('logout-btn').onclick = window.logout;
 
         const startApp = async () => {
-            try { if (!auth.currentUser) await signInAnonymously(auth); }
-            catch (error) { console.error("Auth Startup Error:", error); document.getElementById('loader').classList.add('hidden'); }
+            try {
+                // Default to anonymous if not logged in
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth Startup Error:", error);
+                document.getElementById('loader').classList.add('hidden');
+            }
         };
 
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
             document.getElementById('loader').classList.add('hidden');
-
+            
+            // UI Updates for Auth State
             const loginBtn = document.getElementById('login-btn');
             const logoutBtn = document.getElementById('logout-btn');
             const userAvatar = document.getElementById('user-avatar');
@@ -137,7 +244,9 @@
             }
 
             initTabs();
-            if (activeDayKey) renderWorkout(activeDayKey);
+            if (activeDayKey) {
+                renderWorkout(activeDayKey);
+            }
         });
 
         const initTabs = () => {
@@ -153,6 +262,7 @@
         };
 
         const renderWorkout = (dayKey, clickedBtn) => {
+            // Cleanup previous listeners
             currentUnsubscribes.forEach(unsub => unsub());
             currentUnsubscribes = [];
 
@@ -161,36 +271,44 @@
             if (clickedBtn) clickedBtn.classList.add('accent-bg', 'text-black');
 
             const data = workoutData[dayKey];
-            let html = `<div class="mb-8 flex justify-between items-end"><h2 class="text-3xl font-black accent-text uppercase italic tracking-tighter">${data.title}</h2></div><div class="space-y-6">`;
+            let html = `
+                <div class="mb-8 flex justify-between items-end">
+                    <h2 class="text-3xl font-black accent-text uppercase italic tracking-tighter">${data.title}</h2>
+                </div>
+                <div class="space-y-6">
+            `;
 
             data.exercises.forEach((ex, index) => {
-                html += `<div class="card p-6 rounded-2xl shadow-xl">
-                    <div class="flex flex-col lg:flex-row justify-between gap-6">
-                        <div class="flex-1">
-                            <h3 class="font-black text-xl text-white mb-3 uppercase tracking-tight">${ex.name}</h3>
-                            <div class="flex flex-wrap gap-2 text-[9px] font-black text-zinc-500 mb-4 uppercase tracking-widest">
-                                <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800">S: ${ex.sets}</div>
-                                <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800">R: ${ex.reps}</div>
-                                <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800 text-yellow-500">Rest: ${ex.rest}</div>
+                html += `
+                    <div class="card p-6 rounded-2xl shadow-xl">
+                        <div class="flex flex-col lg:flex-row justify-between gap-6">
+                            <div class="flex-1">
+                                <h3 class="font-black text-xl text-white mb-3 uppercase tracking-tight">${ex.name}</h3>
+                                <div class="flex flex-wrap gap-2 text-[9px] font-black text-zinc-500 mb-4 uppercase tracking-widest">
+                                    <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800">S: ${ex.sets}</div>
+                                    <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800">R: ${ex.reps}</div>
+                                    <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800 text-yellow-500">Rest: ${ex.rest}</div>
+                                </div>
+                                <div id="last-val-${index}" class="text-[10px] text-yellow-500 font-bold uppercase hidden">
+                                    <i class="fas fa-crown mr-1"></i> Last: Loading...
+                                </div>
                             </div>
-                            <div id="last-val-${index}" class="text-[10px] text-yellow-500 font-bold uppercase hidden">
-                                <i class="fas fa-crown mr-1"></i> Last: Loading...
+                            <div class="flex items-end gap-2">
+                                <input type="number" id="w-${index}" placeholder="Kg" class="input-field font-black">
+                                <input type="number" id="r-${index}" placeholder="Reps" class="input-field font-black">
+                                <button onclick="window.saveSet(${index})" class="accent-bg text-black h-11 px-4 rounded-xl font-black uppercase text-[10px]">Log</button>
                             </div>
                         </div>
-                        <div class="flex items-end gap-2">
-                            <input type="number" id="w-${index}" placeholder="Kg" class="input-field font-black">
-                            <input type="number" id="r-${index}" placeholder="Reps" class="input-field font-black">
-                            <button onclick="window.saveSet(${index})" class="accent-bg text-black h-11 px-4 rounded-xl font-black uppercase text-[10px]">Log</button>
+                        <div class="history-container overflow-hidden">
+                            <div class="px-3 py-1.5 bg-zinc-900 text-[8px] font-black text-zinc-500 uppercase flex justify-between">
+                                <span>Recent History</span>
+                                <span>KG x REPS</span>
+                            </div>
+                            <div id="hist-box-${index}" class="max-h-24 overflow-y-auto text-[11px]"></div>
                         </div>
                     </div>
-                    <div class="history-container overflow-hidden">
-                        <div class="px-3 py-1.5 bg-zinc-900 text-[8px] font-black text-zinc-500 uppercase flex justify-between">
-                            <span>Recent History</span>
-                            <span>KG x REPS</span>
-                        </div>
-                        <div id="hist-box-${index}" class="max-h-24 overflow-y-auto text-[11px]"></div>
-                    </div>
-                </div>`;
+                `;
+                // Add listener after a short timeout to ensure DOM is ready
                 setTimeout(() => listenToExercise(dayKey, index), 50);
             });
 
@@ -200,26 +318,33 @@
         const listenToExercise = (dayKey, index) => {
             if (!currentUser) return;
             const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, `hist_${dayKey}_${index}`);
+            
             const unsub = onSnapshot(ref, (snap) => {
                 const logs = [];
                 snap.forEach(d => logs.push(d.data()));
-                logs.sort((a,b)=> (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
-
+                logs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                
                 const box = document.getElementById(`hist-box-${index}`);
                 const lastDisplay = document.getElementById(`last-val-${index}`);
-                if(!box) return;
+                
+                if(!box) return; // Guard for route changes
 
-                if(logs.length > 0){
+                if(logs.length > 0) {
                     lastDisplay.classList.remove('hidden');
                     lastDisplay.innerHTML = `<i class="fas fa-crown mr-1"></i> Last: ${logs[0].weight}kg x ${logs[0].reps}`;
-                    box.innerHTML = logs.slice(0,5).map(l => `<div class="flex justify-between p-2 border-b border-white/5 history-row">
-                        <span class="text-zinc-600">${l.timestamp ? new Date(l.timestamp.seconds*1000).toLocaleDateString('en-GB') : 'Syncing...'}</span>
-                        <span class="font-bold">${l.weight}kg <span class="text-yellow-500">x</span> ${l.reps}</span>
-                    </div>`).join('');
+                    box.innerHTML = logs.slice(0, 5).map(l => `
+                        <div class="flex justify-between p-2 border-b border-white/5 history-row">
+                            <span class="text-zinc-600">${l.timestamp ? new Date(l.timestamp.seconds*1000).toLocaleDateString('en-GB') : 'Syncing...'}</span>
+                            <span class="font-bold">${l.weight}kg <span class="text-yellow-500">x</span> ${l.reps}</span>
+                        </div>
+                    `).join('');
                 } else {
                     box.innerHTML = '<p class="p-3 text-center text-[9px] text-zinc-800 uppercase font-bold tracking-widest">No data</p>';
                 }
-            }, (err)=>{console.warn("Firestore Listen Error:", err);});
+            }, (err) => {
+                console.warn("Firestore Listen Error:", err);
+            });
+
             currentUnsubscribes.push(unsub);
         };
 
@@ -227,16 +352,24 @@
             const w = document.getElementById(`w-${index}`).value;
             const r = document.getElementById(`r-${index}`).value;
             if(!w || !r) return;
-            if (!currentUser) { alert("Please wait for connection..."); return; }
+            
+            if (!currentUser) {
+                alert("Please wait for connection...");
+                return;
+            }
 
             try {
                 const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, `hist_${activeDayKey}_${index}`);
-                await addDoc(ref, { weight: w, reps: r, timestamp: serverTimestamp() });
+                await addDoc(ref, {
+                    weight: w,
+                    reps: r,
+                    timestamp: serverTimestamp()
+                });
                 document.getElementById(`w-${index}`).value = '';
                 document.getElementById(`r-${index}`).value = '';
             } catch (e) {
                 console.error("Save Error:", e);
-                alert("Action failed. Refresh page if you just logged in.");
+                alert("Action failed. If you just logged in, please refresh.");
             }
         };
 
