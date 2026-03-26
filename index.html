@@ -55,7 +55,7 @@
     <div id="loader" class="loading-overlay">
         <div class="text-center">
             <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-yellow-400 border-t-transparent mb-4"></div>
-            <p class="font-black text-xs uppercase tracking-widest text-yellow-400">Connecting to Firebase...</p>
+            <p class="font-black text-xs uppercase tracking-widest text-yellow-400">Connecting to GymWeb...</p>
         </div>
     </div>
 
@@ -63,7 +63,7 @@
         <div class="container mx-auto flex justify-between items-center">
             <div>
                 <h1 class="text-2xl font-black italic tracking-tighter leading-none">GYM WARRIOR</h1>
-                <p class="text-[10px] font-bold opacity-70 tracking-widest uppercase">Cloud Database Active</p>
+                <p class="text-[10px] font-bold opacity-70 tracking-widest uppercase">Project: gymweb-6853c</p>
             </div>
             <div class="text-xs font-black bg-black text-white px-3 py-1.5 rounded-md" id="current-date"></div>
         </div>
@@ -84,21 +84,21 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- خطوة الربط: استبدل هذه القيم ببيانات مشروعك من Firebase Console ---
+        // --- مبروك! تم تحديث البيانات هنا بمشروعك الخاص ---
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyBOOPKV2C1nEA--_no2tK0KySwmZg8KNvQ",
+            authDomain: "gymweb-6853c.firebaseapp.com",
+            projectId: "gymweb-6853c",
+            storageBucket: "gymweb-6853c.firebasestorage.app",
+            messagingSenderId: "103538595875",
+            appId: "1:103538595875:web:62c3737465d53c83c13996",
+            measurementId: "G-W41L9218M9"
         };
 
-        // تهيئة Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = "gym-warrior-custom"; // معرف فريد لتطبيقك
+        const appId = "gym-warrior-custom"; 
 
         let currentUser = null;
         let activeDayKey = null;
@@ -169,13 +169,12 @@
         const workoutContainer = document.getElementById('workout-container');
         document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 
-        // بدء المصادقة
         const startApp = async () => {
             try {
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("Auth Error:", error);
-                alert("Please check your Firebase configuration and allow Anonymous Auth.");
+                alert("Auth failed! Make sure Anonymous Sign-in is enabled in Firebase Console.");
             }
         };
 
@@ -247,7 +246,6 @@
 
         const listenToExercise = (dayKey, index) => {
             if (!currentUser) return;
-            // استخدام المسار المتوافق مع قواعد حماية Firebase
             const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, `hist_${dayKey}_${index}`);
             onSnapshot(ref, (snap) => {
                 const logs = [];
@@ -269,6 +267,8 @@
                 } else {
                     box.innerHTML = '<p class="p-3 text-center text-[9px] text-zinc-800 uppercase font-bold tracking-widest">No data</p>';
                 }
+            }, (err) => {
+                console.error("Firestore Listen Error:", err);
             });
         };
 
@@ -287,8 +287,8 @@
                 document.getElementById(`w-${index}`).value = '';
                 document.getElementById(`r-${index}`).value = '';
             } catch (e) {
-                console.error("Error saving:", e);
-                alert("Save failed. Check Firebase Rules.");
+                console.error("Save Error:", e);
+                alert("Permission Denied! Make sure Firestore Rules allow write access.");
             }
         };
 
