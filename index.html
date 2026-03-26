@@ -61,11 +61,24 @@
 
     <header class="accent-bg text-black p-5 shadow-2xl sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black italic tracking-tighter leading-none">GYM WARRIOR</h1>
-                <p class="text-[10px] font-bold opacity-70 tracking-widest uppercase">Project: gymweb-6853c</p>
+            <div class="flex items-center gap-3">
+                <div id="user-avatar" class="hidden">
+                    <img id="user-img" src="" class="w-10 h-10 rounded-full border-2 border-black">
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black italic tracking-tighter leading-none">GYM WARRIOR</h1>
+                    <p class="text-[10px] font-bold opacity-70 tracking-widest uppercase" id="user-status">Guest Mode</p>
+                </div>
             </div>
-            <div class="text-xs font-black bg-black text-white px-3 py-1.5 rounded-md" id="current-date"></div>
+            <div class="flex items-center gap-2">
+                <button id="login-btn" class="bg-black text-white px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2">
+                    <i class="fab fa-google"></i> Login
+                </button>
+                <button id="logout-btn" class="hidden bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-black uppercase">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+                <div class="hidden md:block text-xs font-black bg-black text-white px-3 py-1.5 rounded-md" id="current-date"></div>
+            </div>
         </div>
     </header>
 
@@ -81,10 +94,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration
+        // Firebase Configuration (Using provided config)
         const firebaseConfig = {
             apiKey: "AIzaSyBOOPKV2C1nEA--_no2tK0KySwmZg8KNvQ",
             authDomain: "gymweb-6853c.firebaseapp.com",
@@ -98,10 +111,12 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
         const appId = "gym-warrior-custom"; 
 
         let currentUser = null;
         let activeDayKey = null;
+        let currentUnsubscribes = [];
 
         const workoutData = {
             "push": {
@@ -169,20 +184,35 @@
         const workoutContainer = document.getElementById('workout-container');
         document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 
+        // Authentication Handlers
+        window.loginWithGoogle = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("Login failed", error);
+            }
+        };
+
+        window.logout = async () => {
+            try {
+                await signOut(auth);
+                window.location.reload();
+            } catch (error) {
+                console.error("Logout failed", error);
+            }
+        };
+
+        document.getElementById('login-btn').onclick = window.loginWithGoogle;
+        document.getElementById('logout-btn').onclick = window.logout;
+
         const startApp = async () => {
             try {
-                // محاولة تسجيل الدخول
-                await signInAnonymously(auth);
-            } catch (error) {
-                console.error("Auth Error Details:", error.code, error.message);
-                if (error.code === 'auth/configuration-not-found') {
-                    const msg = "CRITICAL: Anonymous Sign-in is NOT enabled in your Firebase Console.\n1. Go to Firebase Console > Authentication > Sign-in Method.\n2. Enable 'Anonymous' and save.";
-                    alert(msg);
-                    console.warn(msg);
-                } else {
-                    alert("Auth failed: " + error.message);
+                // Default to anonymous if not logged in
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
                 }
-                // اخفاء اللودر حتى لو فشل الاتصال للسماح بالتصفح محلياً
+            } catch (error) {
+                console.error("Auth Startup Error:", error);
                 document.getElementById('loader').classList.add('hidden');
             }
         };
@@ -190,11 +220,32 @@
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
             document.getElementById('loader').classList.add('hidden');
+            
+            // UI Updates for Auth State
+            const loginBtn = document.getElementById('login-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+            const userAvatar = document.getElementById('user-avatar');
+            const userImg = document.getElementById('user-img');
+            const userStatus = document.getElementById('user-status');
+
+            if (user && !user.isAnonymous) {
+                loginBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+                userAvatar.classList.remove('hidden');
+                userImg.src = user.photoURL || 'https://via.placeholder.com/40';
+                userStatus.innerText = user.displayName || 'Warrior';
+                userStatus.classList.add('text-black');
+            } else {
+                loginBtn.classList.remove('hidden');
+                logoutBtn.classList.add('hidden');
+                userAvatar.classList.add('hidden');
+                userStatus.innerText = 'Guest Mode (Not Saved)';
+                userStatus.classList.remove('text-black');
+            }
+
             initTabs();
-            // في حال وجود يوم مختار مسبقاً، أعد تحميل التمارين
             if (activeDayKey) {
-                const activeBtn = Array.from(dayTabs.children).find(b => b.innerText === workoutData[activeDayKey].title);
-                renderWorkout(activeDayKey, activeBtn);
+                renderWorkout(activeDayKey);
             }
         });
 
@@ -204,19 +255,26 @@
                 const btn = document.createElement('button');
                 btn.className = "px-4 py-2 rounded-xl font-bold transition bg-zinc-900 border border-zinc-800 hover:border-yellow-400 text-[10px] md:text-xs uppercase tracking-wider";
                 btn.innerText = workoutData[key].title;
+                if (activeDayKey === key) btn.classList.add('accent-bg', 'text-black');
                 btn.onclick = () => renderWorkout(key, btn);
                 dayTabs.appendChild(btn);
             });
         };
 
-        const renderWorkout = (dayKey, activeBtn) => {
+        const renderWorkout = (dayKey, clickedBtn) => {
+            // Cleanup previous listeners
+            currentUnsubscribes.forEach(unsub => unsub());
+            currentUnsubscribes = [];
+
             activeDayKey = dayKey;
             Array.from(dayTabs.children).forEach(btn => btn.classList.remove('accent-bg', 'text-black'));
-            if (activeBtn) activeBtn.classList.add('accent-bg', 'text-black');
+            if (clickedBtn) clickedBtn.classList.add('accent-bg', 'text-black');
 
             const data = workoutData[dayKey];
             let html = `
-                <div class="mb-8"><h2 class="text-3xl font-black accent-text uppercase italic tracking-tighter">${data.title}</h2></div>
+                <div class="mb-8 flex justify-between items-end">
+                    <h2 class="text-3xl font-black accent-text uppercase italic tracking-tighter">${data.title}</h2>
+                </div>
                 <div class="space-y-6">
             `;
 
@@ -250,7 +308,8 @@
                         </div>
                     </div>
                 `;
-                listenToExercise(dayKey, index);
+                // Add listener after a short timeout to ensure DOM is ready
+                setTimeout(() => listenToExercise(dayKey, index), 50);
             });
 
             workoutContainer.innerHTML = html + '</div>';
@@ -259,7 +318,8 @@
         const listenToExercise = (dayKey, index) => {
             if (!currentUser) return;
             const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, `hist_${dayKey}_${index}`);
-            onSnapshot(ref, (snap) => {
+            
+            const unsub = onSnapshot(ref, (snap) => {
                 const logs = [];
                 snap.forEach(d => logs.push(d.data()));
                 logs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
@@ -267,6 +327,8 @@
                 const box = document.getElementById(`hist-box-${index}`);
                 const lastDisplay = document.getElementById(`last-val-${index}`);
                 
+                if(!box) return; // Guard for route changes
+
                 if(logs.length > 0) {
                     lastDisplay.classList.remove('hidden');
                     lastDisplay.innerHTML = `<i class="fas fa-crown mr-1"></i> Last: ${logs[0].weight}kg x ${logs[0].reps}`;
@@ -280,8 +342,10 @@
                     box.innerHTML = '<p class="p-3 text-center text-[9px] text-zinc-800 uppercase font-bold tracking-widest">No data</p>';
                 }
             }, (err) => {
-                console.warn("Firestore Listen Error (Likely Rules):", err);
+                console.warn("Firestore Listen Error:", err);
             });
+
+            currentUnsubscribes.push(unsub);
         };
 
         window.saveSet = async (index) => {
@@ -290,7 +354,7 @@
             if(!w || !r) return;
             
             if (!currentUser) {
-                alert("You are not connected to Firebase. Please enable Anonymous Auth in Console.");
+                alert("Please wait for connection...");
                 return;
             }
 
@@ -305,7 +369,7 @@
                 document.getElementById(`r-${index}`).value = '';
             } catch (e) {
                 console.error("Save Error:", e);
-                alert("Permission Denied! Check your Firestore Rules.");
+                alert("Action failed. If you just logged in, please refresh.");
             }
         };
 
