@@ -84,7 +84,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- مبروك! تم تحديث البيانات هنا بمشروعك الخاص ---
+        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBOOPKV2C1nEA--_no2tK0KySwmZg8KNvQ",
             authDomain: "gymweb-6853c.firebaseapp.com",
@@ -171,18 +171,30 @@
 
         const startApp = async () => {
             try {
+                // محاولة تسجيل الدخول
                 await signInAnonymously(auth);
             } catch (error) {
-                console.error("Auth Error:", error);
-                alert("Auth failed! Make sure Anonymous Sign-in is enabled in Firebase Console.");
+                console.error("Auth Error Details:", error.code, error.message);
+                if (error.code === 'auth/configuration-not-found') {
+                    const msg = "CRITICAL: Anonymous Sign-in is NOT enabled in your Firebase Console.\n1. Go to Firebase Console > Authentication > Sign-in Method.\n2. Enable 'Anonymous' and save.";
+                    alert(msg);
+                    console.warn(msg);
+                } else {
+                    alert("Auth failed: " + error.message);
+                }
+                // اخفاء اللودر حتى لو فشل الاتصال للسماح بالتصفح محلياً
+                document.getElementById('loader').classList.add('hidden');
             }
         };
 
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
-            if (user) {
-                document.getElementById('loader').classList.add('hidden');
-                initTabs();
+            document.getElementById('loader').classList.add('hidden');
+            initTabs();
+            // في حال وجود يوم مختار مسبقاً، أعد تحميل التمارين
+            if (activeDayKey) {
+                const activeBtn = Array.from(dayTabs.children).find(b => b.innerText === workoutData[activeDayKey].title);
+                renderWorkout(activeDayKey, activeBtn);
             }
         });
 
@@ -200,7 +212,7 @@
         const renderWorkout = (dayKey, activeBtn) => {
             activeDayKey = dayKey;
             Array.from(dayTabs.children).forEach(btn => btn.classList.remove('accent-bg', 'text-black'));
-            activeBtn.classList.add('accent-bg', 'text-black');
+            if (activeBtn) activeBtn.classList.add('accent-bg', 'text-black');
 
             const data = workoutData[dayKey];
             let html = `
@@ -268,14 +280,19 @@
                     box.innerHTML = '<p class="p-3 text-center text-[9px] text-zinc-800 uppercase font-bold tracking-widest">No data</p>';
                 }
             }, (err) => {
-                console.error("Firestore Listen Error:", err);
+                console.warn("Firestore Listen Error (Likely Rules):", err);
             });
         };
 
         window.saveSet = async (index) => {
             const w = document.getElementById(`w-${index}`).value;
             const r = document.getElementById(`r-${index}`).value;
-            if(!w || !r || !currentUser) return;
+            if(!w || !r) return;
+            
+            if (!currentUser) {
+                alert("You are not connected to Firebase. Please enable Anonymous Auth in Console.");
+                return;
+            }
 
             try {
                 const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, `hist_${activeDayKey}_${index}`);
@@ -288,7 +305,7 @@
                 document.getElementById(`r-${index}`).value = '';
             } catch (e) {
                 console.error("Save Error:", e);
-                alert("Permission Denied! Make sure Firestore Rules allow write access.");
+                alert("Permission Denied! Check your Firestore Rules.");
             }
         };
 
