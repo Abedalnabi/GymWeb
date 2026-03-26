@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Warrior - Cloud App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #ffffff;
+        }
+        .accent-bg { background-color: #FFD700; }
+        .accent-text { color: #FFD700; }
+        .card {
+            background-color: #141414;
+            border-left: 4px solid #FFD700;
+            transition: all 0.3s ease;
+        }
+        .input-field {
+            background-color: #1f1f1f;
+            border: 1px solid #333;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            width: 75px;
+            text-align: center;
+        }
+        .history-container {
+            background-color: #0d0d0d;
+            border-radius: 10px;
+            margin-top: 15px;
+            border: 1px solid #222;
+        }
+        .history-row:nth-child(even) { background-color: #1a1a1a; }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <div id="loader" class="loading-overlay">
+        <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-yellow-400 border-t-transparent mb-4"></div>
+            <p class="font-black text-xs uppercase tracking-widest text-yellow-400">Connecting to Firebase...</p>
+        </div>
+    </div>
+
+    <header class="accent-bg text-black p-5 shadow-2xl sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black italic tracking-tighter leading-none">GYM WARRIOR</h1>
+                <p class="text-[10px] font-bold opacity-70 tracking-widest uppercase">Cloud Database Active</p>
+            </div>
+            <div class="text-xs font-black bg-black text-white px-3 py-1.5 rounded-md" id="current-date"></div>
+        </div>
+    </header>
+
+    <nav class="container mx-auto mt-8 px-4">
+        <div class="flex flex-wrap gap-2 justify-center" id="day-tabs"></div>
+    </nav>
+
+    <main class="container mx-auto mt-10 px-4">
+        <div id="workout-container">
+            <div class="text-center py-20 opacity-30 italic font-black uppercase tracking-widest">Select A Workout Day</div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- خطوة الربط: استبدل هذه القيم ببيانات مشروعك من Firebase Console ---
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // تهيئة Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = "gym-warrior-custom"; // معرف فريد لتطبيقك
+
+        let currentUser = null;
+        let activeDayKey = null;
+
+        const workoutData = {
+            "push": {
+                title: "Push Workout",
+                exercises: [
+                    { name: "DB Incline Press", sets: 4, reps: "12,10,10,10", rest: "2-3 mins" },
+                    { name: "Machine Flat Press", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Low Cable Flies", sets: 4, reps: "15,15,15,15", rest: "90-120 sec" },
+                    { name: "Butter Flies (Tempo)", sets: 3, reps: "10,10,10", rest: "90-120 sec" },
+                    { name: "Single Arm Front Raises", sets: 3, reps: "12,12,12", rest: "90-120 sec" },
+                    { name: "Machine Lateral Raise", sets: 3, reps: "15,15,15", rest: "90-120 sec" },
+                    { name: "Rope Triceps Push Down", sets: 5, reps: "15,12,10,10,8", rest: "90-120 sec" }
+                ]
+            },
+            "pull": {
+                title: "Pull Workout",
+                exercises: [
+                    { name: "Wide Grip Lat Pull Down", sets: 4, reps: "15,12,10,10", rest: "2-3 mins" },
+                    { name: "T-Bar Wide Grip", sets: 3, reps: "12,10,10", rest: "2-3 mins" },
+                    { name: "One Hand Machine", sets: 4, reps: "12,10,10,8", rest: "90-120 sec" },
+                    { name: "Cable Seated Low Row", sets: 4, reps: "12,12,12,12", rest: "90-120 sec" },
+                    { name: "Biceps DB Curls", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Wide Barbell Curls", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Hyper Extensions Back", sets: 3, reps: "15,15,15", rest: "2-3 mins" }
+                ]
+            },
+            "legs": {
+                title: "Legs Workout",
+                exercises: [
+                    { name: "Hack Squats", sets: 3, reps: "12,10,10", rest: "2-3 mins" },
+                    { name: "Leg Press", sets: 3, reps: "12,12,12", rest: "2-3 mins" },
+                    { name: "Leg Extension", sets: 3, reps: "15,12,10", rest: "2-3 mins" },
+                    { name: "Glutes Machine", sets: 3, reps: "15,15,15", rest: "90-120 sec" },
+                    { name: "Hamstring Legs", sets: 3, reps: "15,15,15", rest: "2-3 mins" },
+                    { name: "DB Stiffleg Deadlifts", sets: 3, reps: "12,12,12", rest: "90-120 sec" },
+                    { name: "Calves", sets: 3, reps: "20,20,20", rest: "90-120 sec" }
+                ]
+            },
+            "chest_back": {
+                title: "Chest & Back",
+                exercises: [
+                    { name: "Barbell Flat Press", sets: 4, reps: "20,12,10,8", rest: "2-3 mins" },
+                    { name: "Wide Grip Lat Pull Down", sets: 3, reps: "12,10,18 (Dropset)", rest: "2-3 mins" },
+                    { name: "Incline DB Press", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "One Hand Illiac", sets: 3, reps: "15,15,15", rest: "90-120 sec" },
+                    { name: "Butterflies * Dips", sets: 4, reps: "15,15,15,15", rest: "2-3 mins" },
+                    { name: "Low Cable Rows", sets: 3, reps: "15,15,15", rest: "90-120 sec" }
+                ]
+            },
+            "arms_shoulders": {
+                title: "Arms & Shoulders",
+                exercises: [
+                    { name: "Machine Shoulder Press", sets: 4, reps: "12,10,10,8 (Dropset)", rest: "2-3 mins" },
+                    { name: "DB Lateral Raises", sets: 3, reps: "15,12,12", rest: "90-120 sec" },
+                    { name: "Rear Delts on Rope", sets: 4, reps: "15,12,10,10", rest: "90-120 sec" },
+                    { name: "Seated Biceps DB Curls", sets: 3, reps: "12,10,10", rest: "90-120 sec" },
+                    { name: "Hammer Curls DB", sets: 3, reps: "20,15,15", rest: "90-120 sec" },
+                    { name: "Long Rope Triceps Push Down", sets: 3, reps: "15,12,12", rest: "90-120 sec" },
+                    { name: "Over Head Extension Triceps", sets: 3, reps: "12,12,12", rest: "90-120 sec" }
+                ]
+            }
+        };
+
+        const dayTabs = document.getElementById('day-tabs');
+        const workoutContainer = document.getElementById('workout-container');
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+
+        // بدء المصادقة
+        const startApp = async () => {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Auth Error:", error);
+                alert("Please check your Firebase configuration and allow Anonymous Auth.");
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                document.getElementById('loader').classList.add('hidden');
+                initTabs();
+            }
+        });
+
+        const initTabs = () => {
+            dayTabs.innerHTML = '';
+            Object.keys(workoutData).forEach(key => {
+                const btn = document.createElement('button');
+                btn.className = "px-4 py-2 rounded-xl font-bold transition bg-zinc-900 border border-zinc-800 hover:border-yellow-400 text-[10px] md:text-xs uppercase tracking-wider";
+                btn.innerText = workoutData[key].title;
+                btn.onclick = () => renderWorkout(key, btn);
+                dayTabs.appendChild(btn);
+            });
+        };
+
+        const renderWorkout = (dayKey, activeBtn) => {
+            activeDayKey = dayKey;
+            Array.from(dayTabs.children).forEach(btn => btn.classList.remove('accent-bg', 'text-black'));
+            activeBtn.classList.add('accent-bg', 'text-black');
+
+            const data = workoutData[dayKey];
+            let html = `
+                <div class="mb-8"><h2 class="text-3xl font-black accent-text uppercase italic tracking-tighter">${data.title}</h2></div>
+                <div class="space-y-6">
+            `;
+
+            data.exercises.forEach((ex, index) => {
+                html += `
+                    <div class="card p-6 rounded-2xl shadow-xl">
+                        <div class="flex flex-col lg:flex-row justify-between gap-6">
+                            <div class="flex-1">
+                                <h3 class="font-black text-xl text-white mb-3 uppercase tracking-tight">${ex.name}</h3>
+                                <div class="flex flex-wrap gap-2 text-[9px] font-black text-zinc-500 mb-4 uppercase tracking-widest">
+                                    <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800">S: ${ex.sets}</div>
+                                    <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800">R: ${ex.reps}</div>
+                                    <div class="bg-black/40 px-2 py-1 rounded-md border border-zinc-800 text-yellow-500">Rest: ${ex.rest}</div>
+                                </div>
+                                <div id="last-val-${index}" class="text-[10px] text-yellow-500 font-bold uppercase hidden">
+                                    <i class="fas fa-crown mr-1"></i> Last: Loading...
+                                </div>
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <input type="number" id="w-${index}" placeholder="Kg" class="input-field font-black">
+                                <input type="number" id="r-${index}" placeholder="Reps" class="input-field font-black">
+                                <button onclick="window.saveSet(${index})" class="accent-bg text-black h-11 px-4 rounded-xl font-black uppercase text-[10px]">Log</button>
+                            </div>
+                        </div>
+                        <div class="history-container overflow-hidden">
+                            <div class="px-3 py-1.5 bg-zinc-900 text-[8px] font-black text-zinc-500 uppercase flex justify-between">
+                                <span>Recent History</span>
+                                <span>KG x REPS</span>
+                            </div>
+                            <div id="hist-box-${index}" class="max-h-24 overflow-y-auto text-[11px]"></div>
+                        </div>
+                    </div>
+                `;
+                listenToExercise(dayKey, index);
+            });
+
+            workoutContainer.innerHTML = html + '</div>';
+        };
+
+        const listenToExercise = (dayKey, index) => {
+            if (!currentUser) return;
+            // استخدام المسار المتوافق مع قواعد حماية Firebase
+            const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, `hist_${dayKey}_${index}`);
+            onSnapshot(ref, (snap) => {
+                const logs = [];
+                snap.forEach(d => logs.push(d.data()));
+                logs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                
+                const box = document.getElementById(`hist-box-${index}`);
+                const lastDisplay = document.getElementById(`last-val-${index}`);
+                
+                if(logs.length > 0) {
+                    lastDisplay.classList.remove('hidden');
+                    lastDisplay.innerHTML = `<i class="fas fa-crown mr-1"></i> Last: ${logs[0].weight}kg x ${logs[0].reps}`;
+                    box.innerHTML = logs.slice(0, 5).map(l => `
+                        <div class="flex justify-between p-2 border-b border-white/5 history-row">
+                            <span class="text-zinc-600">${l.timestamp ? new Date(l.timestamp.seconds*1000).toLocaleDateString('en-GB') : 'Syncing...'}</span>
+                            <span class="font-bold">${l.weight}kg <span class="text-yellow-500">x</span> ${l.reps}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    box.innerHTML = '<p class="p-3 text-center text-[9px] text-zinc-800 uppercase font-bold tracking-widest">No data</p>';
+                }
+            });
+        };
+
+        window.saveSet = async (index) => {
+            const w = document.getElementById(`w-${index}`).value;
+            const r = document.getElementById(`r-${index}`).value;
+            if(!w || !r || !currentUser) return;
+
+            try {
+                const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, `hist_${activeDayKey}_${index}`);
+                await addDoc(ref, {
+                    weight: w,
+                    reps: r,
+                    timestamp: serverTimestamp()
+                });
+                document.getElementById(`w-${index}`).value = '';
+                document.getElementById(`r-${index}`).value = '';
+            } catch (e) {
+                console.error("Error saving:", e);
+                alert("Save failed. Check Firebase Rules.");
+            }
+        };
+
+        window.onload = startApp;
+    </script>
+</body>
+</html>
